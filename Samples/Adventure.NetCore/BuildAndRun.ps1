@@ -19,4 +19,4 @@ if ($LastExitCode -ne 0) { return; }
 
 Start-Process "dotnet" -ArgumentList "run --project src/Adventure.SiloHost --no-build"
 Start-Sleep 10
-Start-Process "dotnet" -ArgumentList "run --project src/Adventure.Client --no-build"
+Start-Process "dotnet" -ArgumentList "run --project src/Adventure.SocketClient --no-build"

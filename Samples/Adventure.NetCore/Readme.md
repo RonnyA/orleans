@@ -38,3 +38,11 @@ To start the client (you will have to use a different command window)
 ```
 dotnet run --project src\Adventure.Client\
 ```
+
+The socket client exposes a Telnet server allowing connections on port 8888 so that multiple users can play through this client, connecting each to the Adventure Orleans SiloHost.
+To start the socket client 
+
+```
+dotnet run --project src\Adventure.SocketClient\
+```
+
