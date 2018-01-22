@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2020
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3C202E56-5082-4C00-9438-E0DFAAEC9326}"
+	ProjectSection(SolutionItems) = preProject
+		BuildAndRun.ps1 = BuildAndRun.ps1
+		BuildAndRun.sh = BuildAndRun.sh
+		NuGet.Config = NuGet.Config
+		Readme.md = Readme.md
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Adventure.Interfaces", "src\Adventure.Interfaces\Adventure.Interfaces.csproj", "{6F7B95F0-4E36-422B-9911-0AFB8FD5BACA}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Adventure.Grains", "src\Adventure.Grains\Adventure.Grains.csproj", "{A42E6BFE-6622-4C81-9149-33005C9EC7D6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Adventure.Client", "src\Adventure.Client\Adventure.Client.csproj", "{9DF1AFE5-EEB3-4C0B-BF9C-C9689329A768}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Adventure.SiloHost", "src\Adventure.SiloHost\Adventure.SiloHost.csproj", "{8A9F8F69-14CD-4DB9-8C41-91A438978277}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6F7B95F0-4E36-422B-9911-0AFB8FD5BACA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F7B95F0-4E36-422B-9911-0AFB8FD5BACA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F7B95F0-4E36-422B-9911-0AFB8FD5BACA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F7B95F0-4E36-422B-9911-0AFB8FD5BACA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A42E6BFE-6622-4C81-9149-33005C9EC7D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A42E6BFE-6622-4C81-9149-33005C9EC7D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A42E6BFE-6622-4C81-9149-33005C9EC7D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A42E6BFE-6622-4C81-9149-33005C9EC7D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9DF1AFE5-EEB3-4C0B-BF9C-C9689329A768}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DF1AFE5-EEB3-4C0B-BF9C-C9689329A768}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DF1AFE5-EEB3-4C0B-BF9C-C9689329A768}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DF1AFE5-EEB3-4C0B-BF9C-C9689329A768}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A9F8F69-14CD-4DB9-8C41-91A438978277}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A9F8F69-14CD-4DB9-8C41-91A438978277}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A9F8F69-14CD-4DB9-8C41-91A438978277}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A9F8F69-14CD-4DB9-8C41-91A438978277}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6F7B95F0-4E36-422B-9911-0AFB8FD5BACA} = {3C202E56-5082-4C00-9438-E0DFAAEC9326}
+		{A42E6BFE-6622-4C81-9149-33005C9EC7D6} = {3C202E56-5082-4C00-9438-E0DFAAEC9326}
+		{9DF1AFE5-EEB3-4C0B-BF9C-C9689329A768} = {3C202E56-5082-4C00-9438-E0DFAAEC9326}
+		{8A9F8F69-14CD-4DB9-8C41-91A438978277} = {3C202E56-5082-4C00-9438-E0DFAAEC9326}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {770CE15D-FCF4-4F37-BBC3-B62DEEFFB973}
+	EndGlobalSection
+EndGlobal
