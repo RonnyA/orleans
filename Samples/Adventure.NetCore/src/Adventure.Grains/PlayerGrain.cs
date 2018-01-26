@@ -1,5 +1,6 @@
 using AdventureGrainInterfaces;
 using Orleans;
+using Orleans.Providers;
 using Orleans.Streams;
 using System;
 using System.Collections.Generic;
@@ -9,21 +10,27 @@ using System.Threading.Tasks;
 
 namespace AdventureGrains
 {
-    public class PlayerGrain : Orleans.Grain, IPlayerGrain
+
+    public class PlayerGrainState
     {
-        IRoomGrain roomGrain; // Current room
-        List<Thing> things = new List<Thing>(); // Things that the player is carrying
+        public IRoomGrain roomGrain; // Current room
+        public List<Thing> things = new List<Thing>(); // Things that the player is carrying
+        public bool killed = false;
+
+        public PlayerInfo myInfo;
+    }
+
+    [StorageProvider(ProviderName = "DefaultProvider")]
+    public class PlayerGrain : Orleans.Grain<PlayerGrainState>, IPlayerGrain
+    {
         private ObserverSubscriptionManager<IMessage> _subsManager;
 
 
-        bool killed = false;
-
-        PlayerInfo myInfo;
 
 
         public override Task OnActivateAsync()
         {
-            this.myInfo = new PlayerInfo { Key = this.GetPrimaryKey(), Name = "nobody" };
+            State.myInfo = new PlayerInfo { Key = this.GetPrimaryKey(), Name = "nobody" };
 
 
             // Hook up stream where we push messages to Client
@@ -54,12 +61,12 @@ namespace AdventureGrains
 
         Task<string> IPlayerGrain.Name()
         {
-            return Task.FromResult(myInfo.Name);
+            return Task.FromResult(State.myInfo.Name);
         }
 
         Task<IRoomGrain> IPlayerGrain.RoomGrain()
         {
-            return Task.FromResult(roomGrain);
+            return Task.FromResult(State.roomGrain);
         }
 
 
@@ -68,46 +75,53 @@ namespace AdventureGrains
             await DropAllItems();
 
             // Exit the game
-            if (this.roomGrain != null)
+            if (State.roomGrain != null)
             {
                 if (killer != null)
                 {
                     // He was killed by a player
-                    await this.roomGrain.ExitDead(myInfo, killer, weapon);
+                    await State.roomGrain.ExitDead(State.myInfo, killer, weapon);
                     await SendUpdateMessage("You where killed by " + killer.Name + "!");
                 }
                 else
                 {
-                    await this.roomGrain.Exit(myInfo);
+                    await State.roomGrain.Exit(State.myInfo);
                     await SendUpdateMessage("You died!");
                 }
-                this.roomGrain = null;
-                killed = true;
+                State.roomGrain = null;
+                State.killed = true;
 
-
+                await base.WriteStateAsync();
             }
+
         }
 
         private async Task DropAllItems()
         {
             // Drop everything
             var tasks = new List<Task<string>>();
-            foreach (var thing in new List<Thing>(things))
+            foreach (var thing in new List<Thing>(State.things))
             {
                 tasks.Add(this.Drop(thing));
             }
             await Task.WhenAll(tasks);
+
+            await base.WriteStateAsync();
+
         }
 
         async Task<string> Drop(Thing thing)
         {
-            if (killed)
+            if (State.killed)
                 return await CheckAlive();
 
             if (thing != null)
             {
-                this.things.Remove(thing);
-                await this.roomGrain.Drop(thing);
+                State.things.Remove(thing);
+                await State.roomGrain.Drop(thing);
+
+                await base.WriteStateAsync();
+
                 return "Okay.";
             }
             else
@@ -116,13 +130,15 @@ namespace AdventureGrains
 
         async Task<string> Take(Thing thing)
         {
-            if (killed)
+            if (State.killed)
                 return await CheckAlive();
 
             if (thing != null)
             {
-                this.things.Add(thing);
-                await this.roomGrain.Take(thing);
+                State.things.Add(thing);
+                await State.roomGrain.Take(thing);
+                await base.WriteStateAsync();
+
                 return "Okay.";
             }
             else
@@ -132,29 +148,32 @@ namespace AdventureGrains
 
         Task IPlayerGrain.SetName(string name)
         {
-            this.myInfo.Name = name;
-            return Task.CompletedTask;
+            State.myInfo.Name = name;
+            return base.WriteStateAsync(); //Task.CompletedTask;
         }
 
-        Task IPlayerGrain.SetRoomGrain(IRoomGrain room)
+        async Task IPlayerGrain.SetRoomGrain(IRoomGrain room)
         {
-            this.roomGrain = room;
-            return room.Enter(myInfo);
+            State.roomGrain = room;
+            await room.Enter(State.myInfo);
+            await base.WriteStateAsync();
         }
 
         async Task<string> Go(string direction)
         {
-            IRoomGrain destination = await this.roomGrain.ExitTo(direction);
+            IRoomGrain destination = await State.roomGrain.ExitTo(direction);
 
             StringBuilder description = new StringBuilder();
 
             if (destination != null)
             {
-                await this.roomGrain.Exit(myInfo);
-                await destination.Enter(myInfo);
+                await State.roomGrain.Exit(State.myInfo);
+                await destination.Enter(State.myInfo);
+                State.roomGrain = destination;
 
-                this.roomGrain = destination;
-                var desc = await destination.Description(myInfo);
+                await base.WriteStateAsync();
+
+                var desc = await destination.Description(State.myInfo);
 
                 if (desc != null)
                     description.Append(desc);
@@ -164,10 +183,10 @@ namespace AdventureGrains
                 description.Append("You cannot go in that direction.");
             }
 
-            if (things.Count > 0)
+            if (State.things.Count > 0)
             {
                 description.AppendLine("You are holding the following items:");
-                foreach (var thing in things)
+                foreach (var thing in State.things)
                 {
                     description.AppendLine(thing.Name);
                 }
@@ -178,45 +197,45 @@ namespace AdventureGrains
 
         async Task<string> CheckAlive()
         {
-            if (!killed)
+            if (!State.killed)
                 return null;
 
             // Go to room '-2', which is the place of no return.
             var room = GrainFactory.GetGrain<IRoomGrain>(-2);
-            return await room.Description(myInfo);
+            return await room.Description(State.myInfo);
         }
 
         async Task<string> Kill(string target)
         {
-            if (things.Count == 0)
+            if (State.things.Count == 0)
                 return "With what? Your bare hands?";
 
-            var player = await this.roomGrain.FindPlayer(target);
+            var player = await State.roomGrain.FindPlayer(target);
             if (player != null)
             {
-                if (player.Key  == myInfo.Key)
+                if (player.Key  == State.myInfo.Key)
                 {
                     return "You can't kill yourself!";                
                 }
 
-                var weapon = things.Where(t => t.Category == "weapon").FirstOrDefault();
+                var weapon = State.things.Where(t => t.Category == "weapon").FirstOrDefault();
                 if (weapon != null)
                 {
-                    await GrainFactory.GetGrain<IPlayerGrain>(player.Key).Die(myInfo, weapon);
+                    await GrainFactory.GetGrain<IPlayerGrain>(player.Key).Die(State.myInfo, weapon);
                     return target + " is now dead.";                    
                 }
                 return "With what? Your bare hands?";
             }
 
-            var monster = await this.roomGrain.FindMonster(target);
+            var monster = await State.roomGrain.FindMonster(target);
             if (monster != null)
             {
-                var weapons = monster.KilledBy.Join(things, id => id, t => t.Id, (id, t) => t);
+                var weapons = monster.KilledBy.Join(State.things, id => id, t => t.Id, (id, t) => t);
                 if (weapons.Count() > 0)
                 {
                     Thing weapon = weapons.Where(t => t.Category == "weapon").FirstOrDefault();
 
-                    await GrainFactory.GetGrain<IMonsterGrain>(monster.Id).Kill(this.roomGrain, player, weapon);
+                    await GrainFactory.GetGrain<IMonsterGrain>(monster.Id).Kill(State.roomGrain, player, weapon);
                     return target + " is now dead.";
                 }
                 return "With what? Your bare hands?";
@@ -239,7 +258,7 @@ namespace AdventureGrains
 
         private Thing FindMyThing(string name)
         {
-            return things.Where(x => x.Name == name).FirstOrDefault();
+            return State.things.Where(x => x.Name == name).FirstOrDefault();
         }
 
         private string Rest(string[] words)
@@ -259,9 +278,9 @@ namespace AdventureGrains
 
         async Task<string> Whisper(string words)
         {
-            if (this.roomGrain != null)
+            if (State.roomGrain != null)
             {
-                await roomGrain.Whisper(words, myInfo);
+                await State.roomGrain.Whisper(words, State.myInfo);
             }
             return "You whispered '" + words + "'";
         }
@@ -269,9 +288,9 @@ namespace AdventureGrains
         async Task<string> Shout(string words)
         {
             //TODO: Find a way to tell everyone in all rooms
-            if (this.roomGrain != null)
+            if (State.roomGrain != null)
             {
-                await roomGrain.Shout(words, myInfo);
+                await State.roomGrain.Shout(words, State.myInfo);
             }
             
             return "You shouted '" + words + "'";
@@ -281,9 +300,9 @@ namespace AdventureGrains
         {
             await DropAllItems();
 
-            if (this.roomGrain != null)
+            if (State.roomGrain != null)
             {
-                await roomGrain.Leave(myInfo);
+                await State.roomGrain.Leave(State.myInfo);
             }            
 
             return "You left the game";           
@@ -298,7 +317,7 @@ namespace AdventureGrains
 
             string verb = words[0].ToLower();
 
-            if (killed && verb != "end")
+            if (State.killed && verb != "end")
                 return await CheckAlive();
 
 
@@ -309,7 +328,7 @@ namespace AdventureGrains
             {
                 case "l":
                 case "look":
-                    return await this.roomGrain.Description(myInfo);
+                    return await State.roomGrain.Description(State.myInfo);
 
                 case "go":
                     if (words.Length == 1)
@@ -333,13 +352,13 @@ namespace AdventureGrains
                     return await Drop(thing);
 
                 case "take":
-                    thing = await roomGrain.FindThing(Rest(words));
+                    thing = await State.roomGrain.FindThing(Rest(words));
                     return await Take(thing);
 
                 case "i":
                 case "inv":
                 case "inventory":
-                    return "You are carrying: " + string.Join(" ", things.Select(x => x.Name));
+                    return "You are carrying: " + string.Join(" ", State.things.Select(x => x.Name));
 
                 case "shout":
                     return await Shout(Rest(words));

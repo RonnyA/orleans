@@ -1,5 +1,6 @@
 using AdventureGrainInterfaces;
 using Orleans;
+using Orleans.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,14 +9,20 @@ using System.Threading.Tasks;
 
 namespace AdventureGrains
 {
-    public class MonsterGrain : Orleans.Grain, IMonsterGrain
+
+    public class MonsterGrainState
     {
-        MonsterInfo monsterInfo = new MonsterInfo();
-        IRoomGrain roomGrain; // Current room
+        public MonsterInfo monsterInfo = new MonsterInfo();
+        public IRoomGrain roomGrain; // Current room
+    }
+
+    [StorageProvider(ProviderName = "DefaultProvider")]
+    public class MonsterGrain : Orleans.Grain<MonsterGrainState>, IMonsterGrain
+    {
 
         public override Task OnActivateAsync()
         {
-            this.monsterInfo.Id = this.GetPrimaryKeyLong();
+            State.monsterInfo.Id = this.GetPrimaryKeyLong();
 
             RegisterTimer((_) => Move(), null, TimeSpan.FromSeconds(150), TimeSpan.FromMinutes(150));
             return base.OnActivateAsync();
@@ -23,26 +30,28 @@ namespace AdventureGrains
 
         Task IMonsterGrain.SetInfo(MonsterInfo info)
         {
-            this.monsterInfo = info;
-            return Task.CompletedTask;
+            State.monsterInfo = info;
+            return base.WriteStateAsync(); // Task.CompletedTask;
         }
 
         Task<string> IMonsterGrain.Name()
         {
-            return Task.FromResult(this.monsterInfo.Name);
+            return Task.FromResult(State.monsterInfo.Name);
         }
 
         async Task IMonsterGrain.SetRoomGrain(IRoomGrain room)
         {
-            if (this.roomGrain != null)
-                await this.roomGrain.Exit(this.monsterInfo);
-            this.roomGrain = room;
-            await this.roomGrain.Enter(this.monsterInfo);
+            if (State.roomGrain != null)
+                await State.roomGrain.Exit(State.monsterInfo);
+            State.roomGrain = room;
+            await base.WriteStateAsync();
+
+            await State.roomGrain.Enter(State.monsterInfo);
         }
 
         Task<IRoomGrain> IMonsterGrain.RoomGrain()
         {
-            return Task.FromResult(roomGrain);
+            return Task.FromResult(State.roomGrain);
         }
 
         async Task Move()
@@ -50,29 +59,30 @@ namespace AdventureGrains
             var directions = new string [] { "north", "south", "west", "east" };
 
             var rand = new Random().Next(0, 4);
-            IRoomGrain nextRoom = await this.roomGrain.ExitTo(directions[rand]);
+            IRoomGrain nextRoom = await State.roomGrain.ExitTo(directions[rand]);
 
             if (null == nextRoom) 
                 return;
 
-            await this.roomGrain.Exit(this.monsterInfo);
-            await nextRoom.Enter(this.monsterInfo);
+            await State.roomGrain.Exit(State.monsterInfo);
+            await nextRoom.Enter(State.monsterInfo);
 
-            this.roomGrain = nextRoom;
+            State.roomGrain = nextRoom;
+            await base.WriteStateAsync();
         }
 
 
         Task<string> IMonsterGrain.Kill(IRoomGrain room, PlayerInfo killer, Thing weapon)
         {
-            if (this.roomGrain != null)
+            if (State.roomGrain != null)
             {
-                if (this.roomGrain.GetPrimaryKey() != room.GetPrimaryKey())
+                if (State.roomGrain.GetPrimaryKey() != room.GetPrimaryKey())
                 {
-                    return Task.FromResult(monsterInfo.Name + " snuck away. You were too slow!");
+                    return Task.FromResult(State.monsterInfo.Name + " snuck away. You were too slow!");
                 }
-                return this.roomGrain.ExitDead(this.monsterInfo, killer, weapon).ContinueWith(t => monsterInfo.Name + " is dead.");
+                return State.roomGrain.ExitDead(State.monsterInfo, killer, weapon).ContinueWith(t => State.monsterInfo.Name + " is dead.");
             }
-            return Task.FromResult(monsterInfo.Name + " is already dead. You were too slow and someone else got to him!");
+            return Task.FromResult(State.monsterInfo.Name + " is already dead. You were too slow and someone else got to him!");
         }
     }
 }
